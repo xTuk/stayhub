@@ -1,0 +1,76 @@
+// StayHub — Prisma schema
+// Run `npx prisma generate` after any change, and create a migration with
+// `npx prisma migrate dev --name <description>` in local development.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Any user can list properties (host) and book properties (guest) —
+  // roles are implicit rather than modeled as a separate field.
+  listings Listing[]
+  bookings Booking[]
+
+  @@map("users")
+}
+
+model Listing {
+  id            String   @id @default(cuid())
+  hostId        String
+  host          User     @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  title         String
+  description   String
+  city          String
+  country       String
+  pricePerNight Int // whole US dollars per night
+  amenities     String[] @default([])
+  photos        String[] @default([]) // public S3 object URLs, in display order
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  bookings Booking[]
+
+  @@index([city])
+  @@index([hostId])
+  @@map("listings")
+}
+
+model Booking {
+  id                    String        @id @default(cuid())
+  listingId             String
+  listing               Listing       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  guestId               String
+  guest                 User          @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  checkIn               DateTime
+  checkOut              DateTime
+  nights                Int
+  totalPrice            Int // whole US dollars
+  status                BookingStatus @default(PENDING)
+  stripeSessionId       String?
+  stripePaymentIntentId String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  @@index([listingId])
+  @@index([guestId])
+  @@map("bookings")
+}
