@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyPassword, signAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
+import { verifyPassword, signAuthToken, AUTH_COOKIE_NAME, authCookieOptions } from "@/lib/auth";
 import { loginSchema } from "@/lib/validation";
 import { errorResponse, ApiError } from "@/lib/api-response";
 
@@ -24,13 +24,7 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({
       user: { id: user.id, name: user.name, email: user.email },
     });
-    response.cookies.set(AUTH_COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    response.cookies.set(AUTH_COOKIE_NAME, token, authCookieOptions(60 * 60 * 24 * 7));
     return response;
   } catch (error) {
     return errorResponse(error);

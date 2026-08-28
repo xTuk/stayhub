@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { hashPassword, signAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
+import { hashPassword, signAuthToken, AUTH_COOKIE_NAME, authCookieOptions } from "@/lib/auth";
 import { signupSchema } from "@/lib/validation";
 import { errorResponse, ApiError } from "@/lib/api-response";
 
@@ -23,13 +23,7 @@ export async function POST(request: NextRequest) {
     const token = signAuthToken({ sub: user.id, email: user.email, name: user.name });
 
     const response = NextResponse.json({ user }, { status: 201 });
-    response.cookies.set(AUTH_COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    response.cookies.set(AUTH_COOKIE_NAME, token, authCookieOptions(60 * 60 * 24 * 7));
     return response;
   } catch (error) {
     return errorResponse(error);

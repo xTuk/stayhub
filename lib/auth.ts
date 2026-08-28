@@ -7,6 +7,23 @@ const SALT_ROUNDS = 10;
 
 export const AUTH_COOKIE_NAME = "stayhub_token";
 
+/**
+ * Cookie flags for the auth cookie. `Secure` must match whether the
+ * connection is actually HTTPS, not just "is this a production build" —
+ * conflating the two means the cookie gets silently dropped by the browser
+ * on any production deployment that isn't (yet) behind TLS. Defaults to
+ * secure; set COOKIE_SECURE=false only for a deliberate plain-HTTP deploy.
+ */
+export function authCookieOptions(maxAgeSeconds: number) {
+  return {
+    httpOnly: true as const,
+    secure: process.env.COOKIE_SECURE !== "false",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: maxAgeSeconds,
+  };
+}
+
 export interface AuthTokenPayload {
   sub: string; // user id
   email: string;
