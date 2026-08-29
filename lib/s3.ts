@@ -1,5 +1,5 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { S3Client } from "@aws-sdk/client-s3";
+import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 
 /**
  * Photo uploads are an optional feature in a sandbox/demo deployment: if
@@ -69,15 +69,25 @@ export function isAllowedImageContentType(contentType: string): boolean {
 
 export interface PresignedUpload {
   uploadUrl: string;
+  fields: Record<string, string>;
   publicUrl: string;
   key: string;
 }
 
+/** Listing photos are capped at 10 MB — plenty for a photo, small enough
+ * that a compromised or careless host account can't run up storage cost. */
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
 /**
- * Creates a presigned PUT URL so the browser can upload an image directly
- * to S3, plus the public URL the object will be reachable at afterwards
- * (the bucket is expected to allow public reads on the `listings/` prefix,
- * or to be served through CloudFront).
+ * Creates a presigned POST (not PUT) so the browser can upload an image
+ * directly to S3, plus the public URL the object will be reachable at
+ * afterwards (the bucket is expected to allow public reads on the
+ * `listings/` prefix, or to be served through CloudFront).
+ *
+ * A presigned PUT URL has no way to cap the upload size — S3 only checks
+ * that against a policy document, which only presigned POST supports (via
+ * a `content-length-range` condition). That's the whole reason this uses
+ * POST here instead of the simpler PUT.
  */
 export async function createPresignedUpload(
   listingId: string,
@@ -89,14 +99,20 @@ export async function createPresignedUpload(
   const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
   const key = `listings/${listingId}/${Date.now()}-${safeName}`;
 
-  const command = new PutObjectCommand({
+  const { url, fields } = await createPresignedPost(client, {
     Bucket: config.bucketName,
     Key: key,
-    ContentType: contentType,
+    Conditions: [
+      ["content-length-range", 0, MAX_UPLOAD_BYTES],
+      ["eq", "$Content-Type", contentType],
+    ],
+    Fields: {
+      "Content-Type": contentType,
+    },
+    Expires: 60 * 5,
   });
 
-  const uploadUrl = await getSignedUrl(client, command, { expiresIn: 60 * 5 });
   const publicUrl = `https://${config.bucketName}.s3.${config.region}.amazonaws.com/${key}`;
 
-  return { uploadUrl, publicUrl, key };
+  return { uploadUrl: url, fields, publicUrl, key };
 }

@@ -33,15 +33,23 @@ export default function PhotoUploader({ listingId, photos, onChange }: PhotoUplo
       throw new Error(data.error ?? "Could not prepare upload.");
     }
 
-    const { uploadUrl, publicUrl } = await presignRes.json();
+    const { uploadUrl, fields, publicUrl } = await presignRes.json();
 
-    const putRes = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": file.type },
-      body: file,
-    });
-    if (!putRes.ok) {
-      throw new Error("Upload to S3 failed.");
+    // Presigned POST (not PUT): the size cap enforced server-side lives in
+    // the policy document these `fields` carry, which only POST supports.
+    const formData = new FormData();
+    for (const [key, value] of Object.entries(fields as Record<string, string>)) {
+      formData.append(key, value);
+    }
+    formData.append("file", file);
+
+    const uploadRes = await fetch(uploadUrl, { method: "POST", body: formData });
+    if (!uploadRes.ok) {
+      throw new Error(
+        uploadRes.status === 400
+          ? "That file is too large or the wrong type."
+          : "Upload to S3 failed."
+      );
     }
 
     const appendRes = await fetch(`/api/listings/${listingId}/photos`, {
