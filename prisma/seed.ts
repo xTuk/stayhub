@@ -96,7 +96,7 @@ async function main() {
       pricePerNight: 140,
       amenities: ["Wifi", "Beachfront", "Air conditioning", "Parking", "Pool"],
       photos: [
-        "https://images.unsplash.com/photo-1519821172141-b5d8342b1a98?w=1200&q=80",
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&q=80",
         "https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=1200&q=80",
       ],
     },
